@@ -5,24 +5,24 @@ import { v4 as uuidv4 } from 'uuid';
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import {
-    NavigationProp,
-    RouteProp,
-    useNavigation,
-    useRoute,
+  NavigationProp,
+  RouteProp,
+  useNavigation,
+  useRoute,
 } from "@react-navigation/native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-    Alert,
-    Button,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Button,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { RootStackParamList } from "../App";
@@ -53,9 +53,9 @@ const InvoiceFormScreen: React.FC = () => {
   );
   const [status, setStatus] = useState<Invoice["status"]>(existing?.status ?? "Pending");
 
-  useEffect(() => {
-    recalcItemsTotals();
-  }, [items]);
+  // useEffect(() => {
+  //   recalcItemsTotals();
+  // }, [items]);
 
   const grandTotal = useMemo(() => items.reduce((s, it) => s + (it.total || 0), 0), [items]);
 
@@ -152,7 +152,7 @@ const InvoiceFormScreen: React.FC = () => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 12 }}>
       <Text style={styles.label}>Client Name</Text>
-      <TextInput style={styles.input} value={clientName} onChangeText={setClientName} />
+      <TextInput style={styles.input} placeholderTextColor="black" placeholder='Enter Client Name' value={clientName} onChangeText={setClientName} />
 
       <Text style={styles.label}>Date</Text>
       <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
@@ -179,6 +179,7 @@ const InvoiceFormScreen: React.FC = () => {
         <View key={it.id} style={styles.line}>
           <TextInput
             placeholder="Description"
+            placeholderTextColor="black" 
             style={[styles.input, { flex: 1 }]}
             value={it.description}
             onChangeText={(t) => updateLine(it.id, { description: t })}
@@ -213,8 +214,8 @@ const InvoiceFormScreen: React.FC = () => {
       <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
       <View style={styles.pickerWrap}>
         <Picker selectedValue={status} onValueChange={(v) => setStatus(v as any)}>
-          <Picker.Item label="Received" value="Received" />
-          <Picker.Item label="Pending" value="Pending" />
+          <Picker.Item color='black' label="Received" value="Received" />
+          <Picker.Item color='black' label="Pending" value="Pending" />
         </Picker>
       </View>
 

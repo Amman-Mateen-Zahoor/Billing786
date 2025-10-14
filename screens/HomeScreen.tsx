@@ -3,11 +3,11 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useMemo, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    View
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { RootStackParamList } from "../App";
 import FAB from "../components/FAB";
@@ -77,9 +77,10 @@ const HomeScreen: React.FC = () => {
             selectedValue={selectedMonthYear}
             onValueChange={(v) => setSelectedMonthYear(String(v))}
             mode="dropdown"
+            dropdownIconColor="black"
           >
             {monthOptions.map((m) => (
-              <Picker.Item label={m === "All" ? "All" : humanizeMonth(m)} value={m} key={m} />
+              <Picker.Item label={m === "All" ? "All" : humanizeMonth(m)} color="black" value={m} key={m} />
             ))}
           </Picker>
         </View>
