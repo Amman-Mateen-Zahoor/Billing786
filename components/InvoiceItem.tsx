@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import useInvoiceStore from "../store/invoiceStore";
 import { Invoice } from "../types";
 import { formatCurrency, formatDate } from "../utils/format";
 
@@ -10,7 +11,29 @@ interface Props {
 }
 
 const InvoiceItem: React.FC<Props> = ({ invoice, onPress, onLongPress }) => {
+
   const statusStyle = invoice.status === "Received" ? styles.received : styles.pending;
+
+ const updateInvoice = useInvoiceStore((s) => s.updateInvoice);
+
+const toggleStatus = () => {
+  const newStatus = invoice.status === "Received" ? "Pending" : "Received";
+  Alert.alert(
+    "Change Status",
+    `Do you want to change status to "${newStatus}"?`,
+    [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Yes",
+        onPress: () =>
+          updateInvoice({
+            ...invoice,
+            status: newStatus,
+          }),
+      },
+    ]
+  );
+};
   return (
     <TouchableOpacity onPress={() => onPress(invoice)} onLongPress={() => onLongPress?.(invoice)}>
       <View style={styles.container}>
@@ -20,9 +43,9 @@ const InvoiceItem: React.FC<Props> = ({ invoice, onPress, onLongPress }) => {
         </View>
         <View style={styles.row}>
           <Text style={styles.client}>{invoice.clientName}</Text>
-          <View style={[styles.status, statusStyle]}>
+          <TouchableOpacity style={[styles.status, statusStyle]} onPress={toggleStatus}>
             <Text style={styles.statusText}>{invoice.status}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
         <Text style={styles.invId}>{invoice.id}</Text>
       </View>
