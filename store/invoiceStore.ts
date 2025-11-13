@@ -11,14 +11,15 @@ interface InvoiceState {
   deleteInvoice: (id: string) => Promise<void>;
   loadInvoices: () => Promise<void>;
   clearAll: () => Promise<void>;
+  getItemSuggestions: () => { description: string; unitPrice: number }[];
 }
 
-const useInvoiceStore = create<InvoiceState>((set :any, get:any) => ({
+const useInvoiceStore = create<InvoiceState>((set: any, get: any) => ({
   invoices: [],
 
-  addInvoice: async (invoice:any) => {
+  addInvoice: async (invoice: any) => {
     const invoices = get().invoices;
-    if (invoices.find((i : any) => i.id === invoice.id)) {
+    if (invoices.find((i: any) => i.id === invoice.id)) {
       return { ok: false, error: "Invoice ID must be unique." };
     }
     const newInvoices = [invoice, ...invoices];
@@ -32,11 +33,10 @@ const useInvoiceStore = create<InvoiceState>((set :any, get:any) => ({
     }
   },
 
-  updateInvoice: async (invoice : any) => {
+  updateInvoice: async (invoice: any) => {
     const invoices = get().invoices;
-    const idx = invoices.findIndex((i:any) => i.id === invoice.id);
+    const idx = invoices.findIndex((i: any) => i.id === invoice.id);
     if (idx === -1) return { ok: false, error: "Invoice not found." };
-    // ensure no other invoice uses same id - but since id is key we assume it's same
     const newInvoices = [...invoices];
     newInvoices[idx] = invoice;
     set({ invoices: newInvoices });
@@ -49,8 +49,8 @@ const useInvoiceStore = create<InvoiceState>((set :any, get:any) => ({
     }
   },
 
-  deleteInvoice: async (id:any) => {
-    const newInvoices = get().invoices.filter((i:any) => i.id !== id);
+  deleteInvoice: async (id: any) => {
+    const newInvoices = get().invoices.filter((i: any) => i.id !== id);
     set({ invoices: newInvoices });
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newInvoices));
@@ -78,11 +78,29 @@ const useInvoiceStore = create<InvoiceState>((set :any, get:any) => ({
     set({ invoices: [] });
     await AsyncStorage.removeItem(STORAGE_KEY);
   },
+
+  getItemSuggestions: () => {
+    const invoices = get().invoices;
+    const allItems: { description: string; unitPrice: number }[] = [];
+    invoices.forEach((inv:Invoice) => {
+      inv.items.forEach((item) => {
+        if (item.description.trim()) {
+          allItems.push({ description: item.description.trim(), unitPrice: item.unitPrice });
+        }
+      });
+    });
+    // make unique by description
+    const unique: Record<string, number> = {};
+    allItems.forEach((i) => {
+      if (!(i.description in unique)) {
+        unique[i.description] = i.unitPrice;
+      }
+    });
+    return Object.entries(unique).map(([description, unitPrice]) => ({ description, unitPrice }));
+  },
 }));
 
-// helper to call loadInvoices outside react components
 export const loadInvoices = async () => {
-  // temporary store instance to call loadInvoices
   const s = useInvoiceStore.getState();
   await s.loadInvoices();
 };

@@ -1,6 +1,6 @@
 // Fix for uuid in React Native
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
+import "react-native-get-random-values";
+import { v4 as uuidv4 } from "uuid";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
@@ -16,6 +16,8 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   Button,
+  FlatList,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -33,13 +35,13 @@ import { formatCurrency } from "../utils/format";
 type RouteProps = RouteProp<RootStackParamList, "CreateEdit">;
 
 const InvoiceFormScreen: React.FC = () => {
-  // Add proper typing for navigation
   const nav = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProps>();
   const invoiceId = route.params?.invoiceId;
   const invoices = useInvoiceStore((s) => s.invoices);
   const addInvoice = useInvoiceStore((s) => s.addInvoice);
   const updateInvoice = useInvoiceStore((s) => s.updateInvoice);
+  const getItemSuggestions = useInvoiceStore((s) => s.getItemSuggestions);
 
   const editing = Boolean(invoiceId);
   const existing = invoices.find((i) => i.id === invoiceId);
@@ -53,21 +55,17 @@ const InvoiceFormScreen: React.FC = () => {
   );
   const [status, setStatus] = useState<Invoice["status"]>(existing?.status ?? "Pending");
 
-  // useEffect(() => {
-  //   recalcItemsTotals();
-  // }, [items]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
+ 
+  const suggestions = getItemSuggestions();
 
   const grandTotal = useMemo(() => items.reduce((s, it) => s + (it.total || 0), 0), [items]);
 
   function genId() {
     return "INV-" + Date.now().toString(36).toUpperCase();
   }
-
-  const recalcItemsTotals = () => {
-    setItems((prev) =>
-      prev.map((it) => ({ ...it, total: round2((it.qty || 0) * (it.unitPrice || 0)) }))
-    );
-  };
 
   function round2(n: number) {
     return Math.round(n * 100) / 100;
@@ -82,7 +80,25 @@ const InvoiceFormScreen: React.FC = () => {
   };
 
   const updateLine = (id: string, patch: Partial<LineItem>) => {
-    setItems((s) => s.map((it) => (it.id === id ? { ...it, ...patch, total: round2((patch.qty ?? it.qty) * (patch.unitPrice ?? it.unitPrice)) } : it)));
+    setItems((s) =>
+      s.map((it) =>
+        it.id === id
+          ? {
+              ...it,
+              ...patch,
+              total: round2((patch.qty ?? it.qty) * (patch.unitPrice ?? it.unitPrice)),
+            }
+          : it
+      )
+    );
+  };
+
+  const onSelectSuggestion = (desc: string, price: number) => {
+    if (activeItemId) {
+      updateLine(activeItemId, { description: desc, unitPrice: price });
+      setActiveItemId(null);
+      setModalVisible(false);
+    }
   };
 
   const onSave = async () => {
@@ -94,12 +110,13 @@ const InvoiceFormScreen: React.FC = () => {
       Alert.alert("Validation", "Invoice ID is required");
       return;
     }
-    // unique check if creating or if editing and changed id to one that already exists
+
     const duplicate = invoices.find((inv) => inv.id === id && inv.id !== (existing?.id ?? ""));
     if (duplicate) {
       Alert.alert("Validation", "Invoice ID already exists. Please enter a unique one.");
       return;
     }
+
     const invoice: Invoice = {
       id,
       clientName,
@@ -110,20 +127,13 @@ const InvoiceFormScreen: React.FC = () => {
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     };
 
-    if (editing) {
-      const res = await updateInvoice(invoice);
-      if (!res.ok) {
-        Alert.alert("Error", res.error ?? "Failed to update");
-        return;
-      }
-    } else {
-      const res = await addInvoice(invoice);
-      if (!res.ok) {
-        Alert.alert("Error", res.error ?? "Failed to save");
-        return;
-      }
+    const res = editing ? await updateInvoice(invoice) : await addInvoice(invoice);
+    if (!res.ok) {
+      Alert.alert("Error", res.error ?? "Failed to save invoice");
+      return;
     }
-    nav.navigate("Home"); // This should now work without errors
+
+    nav.navigate("Home");
   };
 
   const onPrint = async () => {
@@ -137,7 +147,6 @@ const InvoiceFormScreen: React.FC = () => {
     });
     try {
       const { uri } = await Print.printToFileAsync({ html });
-      // share
       if (Platform.OS === "ios" || Platform.OS === "android") {
         await Sharing.shareAsync(uri);
       } else {
@@ -150,89 +159,156 @@ const InvoiceFormScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 12 }}>
-      <Text style={styles.label}>Client Name</Text>
-      <TextInput style={styles.input} value={clientName} onChangeText={setClientName} />
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} contentContainerStyle={{ padding: 12 }}>
+        <Text style={styles.label}>Client Name</Text>
+        <TextInput style={styles.input} value={clientName} onChangeText={setClientName} />
 
-      <Text style={styles.label}>Date</Text>
-      <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
-        <Text>{date.toDateString()}</Text>
-      </TouchableOpacity>
-      {showDatePicker && (
-        <DateTimePicker
-          value={date}
-          mode="date"
-          display="default"
-          onChange={(_, d) => {
-            setShowDatePicker(false);
-            if (d) setDate(d);
-          }}
-        />
-      )}
-
-      <Text style={styles.label}>Invoice ID</Text>
-      <TextInput style={styles.input} value={id} onChangeText={setId} />
-
-      <Text style={[styles.label, { marginTop: 12 }]}>Items</Text>
-
-      {items.map((it, idx) => (
-        <View key={it.id} style={styles.line}>
-          <TextInput
-            placeholder="Description"
-            style={[styles.input, { flex: 1 }]}
-            value={it.description}
-            onChangeText={(t) => updateLine(it.id, { description: t })}
+        <Text style={styles.label}>Date</Text>
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
+          <Text>{date.toDateString()}</Text>
+        </TouchableOpacity>
+        {showDatePicker && (
+          <DateTimePicker
+            value={date}
+            mode="date"
+            display="default"
+            onChange={(_, d) => {
+              setShowDatePicker(false);
+              if (d) setDate(d);
+            }}
           />
-          <TextInput
-            placeholder="Qty"
-            keyboardType="numeric"
-            style={[styles.input, { width: 70, marginLeft: 8 }]}
-            value={String(it.qty)}
-            onChangeText={(t) => updateLine(it.id, { qty: parseFloat(t) || 0 })}
-          />
-          <TextInput
-            placeholder="Unit"
-            keyboardType="numeric"
-            style={[styles.input, { width: 100, marginLeft: 8 }]}
-            value={String(it.unitPrice)}
-            onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
-          />
-          <View style={{ justifyContent: "center", marginLeft: 8 }}>
-            <Text style={{ fontWeight: "700" }}>{formatCurrency(it.total)}</Text>
-            <TouchableOpacity onPress={() => removeLine(it.id)}>
-              <Text style={{ color: "red", marginTop: 2 }}>Remove</Text>
+        )}
+
+        <Text style={styles.label}>Invoice ID</Text>
+        <TextInput style={styles.input} value={id} onChangeText={setId} />
+
+        <Text style={[styles.label, { marginTop: 12 }]}>Items</Text>
+
+        {items.map((it) => (
+          <View key={it.id} style={styles.line}>
+            <TouchableOpacity
+              style={[styles.input, { flex: 1, justifyContent: "center" }]}
+              onPress={() => {
+                setActiveItemId(it.id);
+                setModalVisible(true);
+              }}
+            >
+              <Text>{it.description || "Select / Type description"}</Text>
             </TouchableOpacity>
+            <TextInput
+              placeholder="Qty"
+              keyboardType="numeric"
+              style={[styles.input, { width: 70, marginLeft: 8 }]}
+              value={String(it.qty)}
+              onChangeText={(t) => updateLine(it.id, { qty: parseFloat(t) || 0 })}
+            />
+            <TextInput
+              placeholder="Unit"
+              keyboardType="numeric"
+              style={[styles.input, { width: 100, marginLeft: 8 }]}
+              value={String(it.unitPrice)}
+              onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
+            />
+            <View style={{ justifyContent: "center", marginLeft: 8 }}>
+              <Text style={{ fontWeight: "700" }}>{formatCurrency(it.total)}</Text>
+              <TouchableOpacity onPress={() => removeLine(it.id)}>
+                <Text style={{ color: "red", marginTop: 2 }}>Remove</Text>
+              </TouchableOpacity>
+            </View>
           </View>
+        ))}
+
+        <TouchableOpacity style={styles.addBtn} onPress={addLine}>
+          <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
+        <View style={styles.pickerWrap}>
+          <Picker selectedValue={status} onValueChange={(v) => setStatus(v as any)}>
+            <Picker.Item label="Received" value="Received" />
+            <Picker.Item label="Pending" value="Pending" />
+          </Picker>
         </View>
-      ))}
 
-      <TouchableOpacity style={styles.addBtn} onPress={addLine}>
-        <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
-      </TouchableOpacity>
+        <View style={styles.row}>
+          <Text style={styles.grandLabel}>Grand Total</Text>
+          <Text style={styles.grandValue}>{formatCurrency(grandTotal)}</Text>
+        </View>
 
-      <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
-      <View style={styles.pickerWrap}>
-        <Picker selectedValue={status} onValueChange={(v) => setStatus(v as any)}>
-          <Picker.Item label="Received" value="Received" />
-          <Picker.Item label="Pending" value="Pending" />
-        </Picker>
-      </View>
+        <View style={{ height: 12 }} />
 
-      <View style={styles.row}>
-        <Text style={styles.grandLabel}>Grand Total</Text>
-        <Text style={styles.grandValue}>{formatCurrency(grandTotal)}</Text>
-      </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Button title="Cancel" onPress={() => nav.navigate("Home")} color="#999" />
+          <Button title="Print Invoice" onPress={onPrint} />
+          <Button title={editing ? "Update" : "Save"} onPress={onSave} />
+        </View>
 
-      <View style={{ height: 12 }} />
+        <View style={{ height: 60 }} />
+      </ScrollView>
 
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Button title="Cancel" onPress={() => nav.navigate("Home")} color="#999" />
-        <Button title="Print Invoice" onPress={onPrint} />
-        <Button title={editing ? "Update" : "Save"} onPress={onSave} />
-      </View>
+      {/* Suggestion Modal */}
+      {/* Suggestion Modal */}
+<Modal visible={modalVisible} transparent animationType="fade">
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalBox}>
+      <Text style={styles.modalTitle}>Select Item</Text>
 
-      <View style={{ height: 60 }} />
-    </ScrollView>
+      {/* Search input */}
+      <TextInput
+        style={[styles.input, { marginBottom: 8 }]}
+        placeholder="Search or type new item"
+        value={searchText}
+        onChangeText={setSearchText}
+      />
+
+      {/* Filtered list */}
+      <FlatList
+        data={suggestions.filter((s) =>
+          s.description.toLowerCase().includes(searchText.toLowerCase())
+        )}
+        keyExtractor={(item) => item.description}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={styles.modalItem}
+            onPress={() => onSelectSuggestion(item.description, item.unitPrice)}
+          >
+            <Text style={{ fontWeight: "600" }}>{item.description}</Text>
+            <Text style={{ color: "#555" }}>{formatCurrency(item.unitPrice)}</Text>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={
+          <TouchableOpacity
+            style={[styles.modalItem, { justifyContent: "center" }]}
+            onPress={() => {
+              // Add new item if it doesn't exist
+              if (activeItemId) {
+                updateLine(activeItemId, { description: searchText, unitPrice: 0 });
+                setActiveItemId(null);
+                setModalVisible(false);
+                setSearchText("");
+              }
+            }}
+          >
+            <Text style={{ textAlign: "center", color: "#999" }}>
+              {searchText ? `Add "${searchText}"` : "No items found"}
+            </Text>
+          </TouchableOpacity>
+        }
+      />
+
+      <Button
+        title="Close"
+        onPress={() => {
+          setModalVisible(false);
+          setSearchText("");
+        }}
+      />
+    </View>
+  </View>
+</Modal>
+
+    </View>
   );
 };
 
@@ -297,6 +373,39 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 },
   grandLabel: { fontSize: 16, fontWeight: "600" },
   grandValue: { fontSize: 16, fontWeight: "700" },
+
+  // ✅ Add these to fix the missing style errors
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 10,
+    width: "85%",
+    maxHeight: "70%",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  itemRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+    modalItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+
 });
 
 export default InvoiceFormScreen;
