@@ -3,11 +3,12 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useMemo, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    View
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { RootStackParamList } from "../App";
 import FAB from "../components/FAB";
@@ -22,9 +23,12 @@ const HomeScreen: React.FC = () => {
   const invoices = useInvoiceStore((s) => s.invoices);
   const deleteInvoice = useInvoiceStore((s) => s.deleteInvoice);
 
-  // Filter by month & year
+  // Filters
   const [selectedMonthYear, setSelectedMonthYear] = useState<string>("All");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [searchText, setSearchText] = useState<string>("");
 
+  // Month options
   const monthOptions = useMemo(() => {
     const set = new Set<string>();
     invoices.forEach((inv) => {
@@ -35,16 +39,38 @@ const HomeScreen: React.FC = () => {
     return ["All", ...Array.from(set).sort((a, b) => (a < b ? 1 : -1))];
   }, [invoices]);
 
+  // Filtered invoices
   const filtered = useMemo(() => {
-    if (selectedMonthYear === "All") return invoices;
-    const [yearStr, monthStr] = selectedMonthYear.split("-");
-    const y = parseInt(yearStr, 10);
-    const m = parseInt(monthStr, 10) - 1;
-    return invoices.filter((inv) => {
-      const d = new Date(inv.date);
-      return d.getFullYear() === y && d.getMonth() === m;
-    });
-  }, [invoices, selectedMonthYear]);
+    let data = invoices;
+
+    // Filter by month
+    if (selectedMonthYear !== "All") {
+      const [yearStr, monthStr] = selectedMonthYear.split("-");
+      const y = parseInt(yearStr, 10);
+      const m = parseInt(monthStr, 10) - 1;
+      data = data.filter((inv) => {
+        const d = new Date(inv.date);
+        return d.getFullYear() === y && d.getMonth() === m;
+      });
+    }
+
+    // Filter by status
+    if (statusFilter !== "All") {
+      data = data.filter((inv) => inv.status === statusFilter);
+    }
+
+    // Search by client name or invoice ID
+    if (searchText.trim()) {
+      const text = searchText.toLowerCase();
+      data = data.filter(
+        (inv) =>
+          inv.clientName.toLowerCase().includes(text) ||
+          inv.id.toLowerCase().includes(text)
+      );
+    }
+
+    return data;
+  }, [invoices, selectedMonthYear, statusFilter, searchText]);
 
   const total = filtered.reduce((s, i) => s + (i.grandTotal || 0), 0);
 
@@ -71,7 +97,9 @@ const HomeScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {/* Header Filters */}
       <View style={styles.header}>
+        {/* Month picker */}
         <View style={styles.pickerWrap}>
           <Picker
             selectedValue={selectedMonthYear}
@@ -79,16 +107,44 @@ const HomeScreen: React.FC = () => {
             mode="dropdown"
           >
             {monthOptions.map((m) => (
-              <Picker.Item label={m === "All" ? "All" : humanizeMonth(m)} value={m} key={m} />
+              <Picker.Item
+                label={m === "All" ? "All Months" : humanizeMonth(m)}
+                value={m}
+                key={m}
+              />
             ))}
           </Picker>
         </View>
-        <View style={styles.totalWrap}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+
+        {/* Status picker */}
+        <View style={[styles.pickerWrap, { marginRight: 0 }]}>
+          <Picker
+            selectedValue={statusFilter}
+            onValueChange={(v) => setStatusFilter(String(v))}
+            mode="dropdown"
+          >
+            <Picker.Item label="All Status" value="All" />
+            <Picker.Item label="Received" value="Received" />
+            <Picker.Item label="Pending" value="Pending" />
+          </Picker>
         </View>
       </View>
 
+      {/* Search input */}
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by client name or invoice ID"
+        value={searchText}
+        onChangeText={setSearchText}
+      />
+
+      {/* Total */}
+      <View style={styles.totalWrap}>
+        <Text style={styles.totalLabel}>Total</Text>
+        <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+      </View>
+
+      {/* Invoice list */}
       <FlatList
         data={filtered}
         keyExtractor={(i) => i.id}
@@ -96,7 +152,9 @@ const HomeScreen: React.FC = () => {
           <InvoiceItem invoice={item} onPress={onItemPress} onLongPress={onItemLong} />
         )}
         contentContainerStyle={{ paddingVertical: 8 }}
-        ListEmptyComponent={<Text style={styles.empty}>No invoices yet. Create one!</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>No invoices match your search/filter.</Text>
+        }
       />
 
       <FAB onPress={() => navigation.navigate("CreateEdit")} />
@@ -114,8 +172,21 @@ function humanizeMonth(raw: string) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f2f4f7" },
   header: { flexDirection: "row", padding: 12, alignItems: "center" },
-  pickerWrap: { flex: 1, backgroundColor: "#fff", borderRadius: 8, marginRight: 8, overflow: "hidden" },
-  totalWrap: { width: 140, alignItems: "flex-end" },
+  pickerWrap: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginRight: 8,
+    overflow: "hidden",
+  },
+  searchInput: {
+    backgroundColor: "#fff",
+    padding: 10,
+    marginHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  totalWrap: { paddingHorizontal: 12, alignItems: "flex-end", marginBottom: 8 },
   totalLabel: { color: "#666", fontSize: 12 },
   totalValue: { fontWeight: "700", fontSize: 16 },
   empty: { textAlign: "center", marginTop: 24, color: "#666" },
