@@ -5,24 +5,24 @@ import { v4 as uuidv4 } from 'uuid';
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import {
-    NavigationProp,
-    RouteProp,
-    useNavigation,
-    useRoute,
+  NavigationProp,
+  RouteProp,
+  useNavigation,
+  useRoute,
 } from "@react-navigation/native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-    Alert,
-    Button,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Button,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { RootStackParamList } from "../App";
@@ -53,9 +53,9 @@ const InvoiceFormScreen: React.FC = () => {
   );
   const [status, setStatus] = useState<Invoice["status"]>(existing?.status ?? "Pending");
 
-  useEffect(() => {
-    recalcItemsTotals();
-  }, [items]);
+  // useEffect(() => {
+  //   recalcItemsTotals();
+  // }, [items]);
 
   const grandTotal = useMemo(() => items.reduce((s, it) => s + (it.total || 0), 0), [items]);
 
