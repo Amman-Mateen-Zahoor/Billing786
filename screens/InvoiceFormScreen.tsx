@@ -17,6 +17,7 @@ import {
   Alert,
   Button,
   FlatList,
+  Keyboard,
   Modal,
   Platform,
   ScrollView,
@@ -24,6 +25,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
@@ -51,7 +53,7 @@ const InvoiceFormScreen: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [id, setId] = useState(existing?.id ?? genId());
   const [items, setItems] = useState<LineItem[]>(
-    existing?.items ?? [{ id: uuidv4(), description: "", qty: 1, unitPrice: 0, total: 0 }]
+    existing?.items ?? [{ id: uuidv4(), description: "", qty: 0, unitPrice: 0, total: 0 }]
   );
   const [status, setStatus] = useState<Invoice["status"]>(existing?.status ?? "Pending");
 
@@ -72,7 +74,7 @@ const InvoiceFormScreen: React.FC = () => {
   }
 
   const addLine = () => {
-    setItems((s) => [...s, { id: uuidv4(), description: "", qty: 1, unitPrice: 0, total: 0 }]);
+    setItems((s) => [...s, { id: uuidv4(), description: "", qty: 0, unitPrice: 0, total: 0 }]);
   };
 
   const removeLine = (id: string) => {
@@ -159,10 +161,16 @@ const InvoiceFormScreen: React.FC = () => {
   };
 
   return (
+    <TouchableWithoutFeedback
+  onPress={() => {
+    setModalVisible(false);
+    Keyboard.dismiss();
+  }}
+>
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container} contentContainerStyle={{ padding: 12 }}>
         <Text style={styles.label}>Client Name</Text>
-        <TextInput style={styles.input} value={clientName} onChangeText={setClientName} />
+        <TextInput style={styles.input} value={clientName} placeholder="786 Traders" onChangeText={setClientName} />
 
         <Text style={styles.label}>Date</Text>
         <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
@@ -184,40 +192,45 @@ const InvoiceFormScreen: React.FC = () => {
         <TextInput style={styles.input} value={id} onChangeText={setId} />
 
         <Text style={[styles.label, { marginTop: 12 }]}>Items</Text>
+{items.map((it) => (
+  <View key={it.id} style={styles.line}>
+    <TouchableOpacity
+      style={[styles.input, { flex: 1, justifyContent: "center" }]}
+      onPress={() => {
+        setActiveItemId(it.id);
+        setModalVisible(true);
+      }}
+    >
+      <Text style={{ color: it.description ? "#000" : "#999" }}>
+        {it.description || "Enter Item"}
+      </Text>
+    </TouchableOpacity>
 
-        {items.map((it) => (
-          <View key={it.id} style={styles.line}>
-            <TouchableOpacity
-              style={[styles.input, { flex: 1, justifyContent: "center" }]}
-              onPress={() => {
-                setActiveItemId(it.id);
-                setModalVisible(true);
-              }}
-            >
-              <Text>{it.description || "Select / Type description"}</Text>
-            </TouchableOpacity>
-            <TextInput
-              placeholder="Qty"
-              keyboardType="numeric"
-              style={[styles.input, { width: 70, marginLeft: 8 }]}
-              value={String(it.qty)}
-              onChangeText={(t) => updateLine(it.id, { qty: parseFloat(t) || 0 })}
-            />
-            <TextInput
-              placeholder="Unit"
-              keyboardType="numeric"
-              style={[styles.input, { width: 100, marginLeft: 8 }]}
-              value={String(it.unitPrice)}
-              onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
-            />
-            <View style={{ justifyContent: "center", marginLeft: 8 }}>
-              <Text style={{ fontWeight: "700" }}>{formatCurrency(it.total)}</Text>
-              <TouchableOpacity onPress={() => removeLine(it.id)}>
-                <Text style={{ color: "red", marginTop: 2 }}>Remove</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+    <TextInput
+      placeholder="Qty"
+      keyboardType="numeric"
+      style={[styles.input, { width: 70, marginLeft: 8 }]}
+      value={it.qty ? String(it.qty) : ""}
+      onChangeText={(t) => updateLine(it.id, { qty: parseFloat(t) || 0 })}
+    />
+
+    <TextInput
+      placeholder="Price"
+      keyboardType="numeric"
+      style={[styles.input, { width: 100, marginLeft: 8 }]}
+      value={it.unitPrice ? String(it.unitPrice) : ""}
+      onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
+    />
+
+    <View style={{ justifyContent: "center", marginLeft: 8 }}>
+      <Text style={{ fontWeight: "700" }}>{formatCurrency(it.total)}</Text>
+      <TouchableOpacity onPress={() => removeLine(it.id)}>
+        <Text style={{ color: "red", marginTop: 2 }}>Remove</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+))}
+
 
         <TouchableOpacity style={styles.addBtn} onPress={addLine}>
           <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
@@ -250,6 +263,13 @@ const InvoiceFormScreen: React.FC = () => {
       {/* Suggestion Modal */}
       {/* Suggestion Modal */}
 <Modal visible={modalVisible} transparent animationType="fade">
+  <TouchableWithoutFeedback
+    onPress={() => {
+      setModalVisible(false);
+      setActiveItemId(null);
+      setSearchText("");
+    }}
+  >
   <View style={styles.modalOverlay}>
     <View style={styles.modalBox}>
       <Text style={styles.modalTitle}>Select Item</Text>
@@ -306,9 +326,11 @@ const InvoiceFormScreen: React.FC = () => {
       />
     </View>
   </View>
+  </TouchableWithoutFeedback>
 </Modal>
 
     </View>
+    </TouchableWithoutFeedback>
   );
 };
 
