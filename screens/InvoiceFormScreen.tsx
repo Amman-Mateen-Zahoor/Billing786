@@ -62,7 +62,6 @@ const InvoiceFormScreen: React.FC = () => {
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
 
-  // Track if the form has unsaved changes
   const [isDirty, setIsDirty] = useState(false);
 
   const suggestions = getItemSuggestions();
@@ -80,14 +79,7 @@ const InvoiceFormScreen: React.FC = () => {
     return Math.round(n * 100) / 100;
   }
 
-  const addLine = () => {
-    setItems((s) => [...s, { id: uuidv4(), description: "", qty: 0, unitPrice: 0, total: 0 }]);
-  };
-
-  const removeLine = (id: string) => {
-    setItems((s) => s.filter((it) => it.id !== id));
-  };
-
+  // Update line item locally (no auto-save)
   const updateLine = (id: string, patch: Partial<LineItem>) => {
     setItems((s) =>
       s.map((it) =>
@@ -100,6 +92,14 @@ const InvoiceFormScreen: React.FC = () => {
           : it
       )
     );
+  };
+
+  const addLine = () => {
+    setItems((s) => [...s, { id: uuidv4(), description: "", qty: 0, unitPrice: 0, total: 0 }]);
+  };
+
+  const removeLine = (id: string) => {
+    setItems((s) => s.filter((it) => it.id !== id));
   };
 
   const onSelectSuggestion = (desc: string, price: number) => {
@@ -167,7 +167,7 @@ const InvoiceFormScreen: React.FC = () => {
     }
   };
 
-  // Update isDirty whenever form fields change
+  // Track unsaved changes
   useEffect(() => {
     if (
       clientName !== existing?.clientName ||
@@ -182,11 +182,10 @@ const InvoiceFormScreen: React.FC = () => {
     }
   }, [clientName, date, id, items, status]);
 
-  // Intercept back navigation
+  // Confirm back navigation
   useEffect(() => {
     const unsubscribe = nav.addListener("beforeRemove", (e) => {
       if (!isDirty) return;
-
       e.preventDefault();
 
       Alert.alert(
@@ -194,15 +193,10 @@ const InvoiceFormScreen: React.FC = () => {
         "You have unsaved changes. If you go back, your data will be lost.",
         [
           { text: "Cancel", style: "cancel" },
-          {
-            text: "Discard",
-            style: "destructive",
-            onPress: () => nav.dispatch(e.data.action),
-          },
+          { text: "Discard", style: "destructive", onPress: () => nav.dispatch(e.data.action) },
         ]
       );
     });
-
     return unsubscribe;
   }, [nav, isDirty]);
 
@@ -457,36 +451,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 },
   grandLabel: { fontSize: 16, fontWeight: "600" },
   grandValue: { fontSize: 16, fontWeight: "700" },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalBox: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 10,
-    width: "85%",
-    maxHeight: "70%",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  itemRow: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  modalItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
+  modalBox: { backgroundColor: "#fff", padding: 16, borderRadius: 10, width: "85%", maxHeight: "70%" },
+  modalTitle: { fontSize: 18, fontWeight: "600", marginBottom: 12, textAlign: "center" },
+  modalItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: "#eee" },
 });
 
 export default InvoiceFormScreen;
