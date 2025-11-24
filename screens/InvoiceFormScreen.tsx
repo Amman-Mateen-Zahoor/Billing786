@@ -1,7 +1,4 @@
-// Fix for uuid in React Native
-import "react-native-get-random-values";
-import { v4 as uuidv4 } from "uuid";
-
+// InvoiceFormScreen.tsx
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import {
@@ -12,7 +9,7 @@ import {
 } from "@react-navigation/native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -28,6 +25,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import "react-native-get-random-values";
+import { v4 as uuidv4 } from "uuid";
 
 import { RootStackParamList } from "../App";
 import useInvoiceStore from "../store/invoiceStore";
@@ -49,7 +48,9 @@ const InvoiceFormScreen: React.FC = () => {
   const existing = invoices.find((i) => i.id === invoiceId);
 
   const [clientName, setClientName] = useState(existing?.clientName ?? "");
-  const [date, setDate] = useState<Date>(existing ? new Date(existing.date) : new Date());
+  const [date, setDate] = useState<Date>(
+    existing ? new Date(existing.date) : new Date()
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [id, setId] = useState(existing?.id ?? genId());
   const [items, setItems] = useState<LineItem[]>(
@@ -60,10 +61,16 @@ const InvoiceFormScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
- 
+
+  // Track if the form has unsaved changes
+  const [isDirty, setIsDirty] = useState(false);
+
   const suggestions = getItemSuggestions();
 
-  const grandTotal = useMemo(() => items.reduce((s, it) => s + (it.total || 0), 0), [items]);
+  const grandTotal = useMemo(
+    () => items.reduce((s, it) => s + (it.total || 0), 0),
+    [items]
+  );
 
   function genId() {
     return "INV-" + Date.now().toString(36).toUpperCase();
@@ -160,176 +167,231 @@ const InvoiceFormScreen: React.FC = () => {
     }
   };
 
+  // Update isDirty whenever form fields change
+  useEffect(() => {
+    if (
+      clientName !== existing?.clientName ||
+      date.toISOString() !== existing?.date ||
+      id !== existing?.id ||
+      JSON.stringify(items) !== JSON.stringify(existing?.items) ||
+      status !== existing?.status
+    ) {
+      setIsDirty(true);
+    } else {
+      setIsDirty(false);
+    }
+  }, [clientName, date, id, items, status]);
+
+  // Intercept back navigation
+  useEffect(() => {
+    const unsubscribe = nav.addListener("beforeRemove", (e) => {
+      if (!isDirty) return;
+
+      e.preventDefault();
+
+      Alert.alert(
+        "Discard changes?",
+        "You have unsaved changes. If you go back, your data will be lost.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Discard",
+            style: "destructive",
+            onPress: () => nav.dispatch(e.data.action),
+          },
+        ]
+      );
+    });
+
+    return unsubscribe;
+  }, [nav, isDirty]);
+
   return (
     <TouchableWithoutFeedback
-  onPress={() => {
-    setModalVisible(false);
-    Keyboard.dismiss();
-  }}
->
-    <View style={{ flex: 1 }}>
-      <ScrollView style={styles.container} contentContainerStyle={{ padding: 12 }}>
-        <Text style={styles.label}>Client Name</Text>
-        <TextInput style={styles.input} value={clientName} placeholder="786 Traders" onChangeText={setClientName} />
-
-        <Text style={styles.label}>Date</Text>
-        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
-          <Text>{date.toDateString()}</Text>
-        </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display="default"
-            onChange={(_, d) => {
-              setShowDatePicker(false);
-              if (d) setDate(d);
-            }}
-          />
-        )}
-
-        <Text style={styles.label}>Invoice ID</Text>
-        <TextInput style={styles.input} value={id} onChangeText={setId} />
-
-        <Text style={[styles.label, { marginTop: 12 }]}>Items</Text>
-{items.map((it) => (
-  <View key={it.id} style={styles.line}>
-    <TouchableOpacity
-      style={[styles.input, { flex: 1, justifyContent: "center" }]}
       onPress={() => {
-        setActiveItemId(it.id);
-        setModalVisible(true);
+        setModalVisible(false);
+        Keyboard.dismiss();
       }}
     >
-      <Text style={{ color: it.description ? "#000" : "#999" }}>
-        {it.description || "Enter Item"}
-      </Text>
-    </TouchableOpacity>
+      <View style={{ flex: 1 }}>
+        <ScrollView style={styles.container} contentContainerStyle={{ padding: 12 }}>
+          <Text style={styles.label}>Client Name</Text>
+          <TextInput
+            style={styles.input}
+            value={clientName}
+            placeholder="786 Traders"
+            onChangeText={setClientName}
+          />
 
-    <TextInput
-      placeholder="Qty"
-      keyboardType="numeric"
-      style={[styles.input, { width: 70, marginLeft: 8 }]}
-      value={it.qty ? String(it.qty) : ""}
-      onChangeText={(t) => updateLine(it.id, { qty: parseFloat(t) || 0 })}
-    />
-
-    <TextInput
-      placeholder="Price"
-      keyboardType="numeric"
-      style={[styles.input, { width: 100, marginLeft: 8 }]}
-      value={it.unitPrice ? String(it.unitPrice) : ""}
-      onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
-    />
-
-    <View style={{ justifyContent: "center", marginLeft: 8 }}>
-      <Text style={{ fontWeight: "700" }}>{formatCurrency(it.total)}</Text>
-      <TouchableOpacity onPress={() => removeLine(it.id)}>
-        <Text style={{ color: "red", marginTop: 2 }}>Remove</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-))}
-
-
-        <TouchableOpacity style={styles.addBtn} onPress={addLine}>
-          <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
-        </TouchableOpacity>
-
-        <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
-        <View style={styles.pickerWrap}>
-          <Picker selectedValue={status} onValueChange={(v) => setStatus(v as any)}>
-            <Picker.Item label="Received" value="Received" />
-            <Picker.Item label="Pending" value="Pending" />
-          </Picker>
-        </View>
-
-        <View style={styles.row}>
-          <Text style={styles.grandLabel}>Grand Total</Text>
-          <Text style={styles.grandValue}>{formatCurrency(grandTotal)}</Text>
-        </View>
-
-        <View style={{ height: 12 }} />
-
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <Button title="Cancel" onPress={() => nav.navigate("Home")} color="#999" />
-          <Button title="Print Invoice" onPress={onPrint} />
-          <Button title={editing ? "Update" : "Save"} onPress={onSave} />
-        </View>
-
-        <View style={{ height: 60 }} />
-      </ScrollView>
-
-      {/* Suggestion Modal */}
-      {/* Suggestion Modal */}
-<Modal visible={modalVisible} transparent animationType="fade">
-  <TouchableWithoutFeedback
-    onPress={() => {
-      setModalVisible(false);
-      setActiveItemId(null);
-      setSearchText("");
-    }}
-  >
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalBox}>
-      <Text style={styles.modalTitle}>Select Item</Text>
-
-      {/* Search input */}
-      <TextInput
-        style={[styles.input, { marginBottom: 8 }]}
-        placeholder="Search or type new item"
-        value={searchText}
-        onChangeText={setSearchText}
-      />
-
-      {/* Filtered list */}
-      <FlatList
-        data={suggestions.filter((s) =>
-          s.description.toLowerCase().includes(searchText.toLowerCase())
-        )}
-        keyExtractor={(item) => item.description}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.modalItem}
-            onPress={() => onSelectSuggestion(item.description, item.unitPrice)}
-          >
-            <Text style={{ fontWeight: "600" }}>{item.description}</Text>
-            <Text style={{ color: "#555" }}>{formatCurrency(item.unitPrice)}</Text>
+          <Text style={styles.label}>Date</Text>
+          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
+            <Text>{date.toDateString()}</Text>
           </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <TouchableOpacity
-            style={[styles.modalItem, { justifyContent: "center" }]}
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display="default"
+              onChange={(_, d) => {
+                setShowDatePicker(false);
+                if (d) setDate(d);
+              }}
+            />
+          )}
+
+          <Text style={styles.label}>Invoice ID</Text>
+          <TextInput style={styles.input} value={id} onChangeText={setId} />
+
+          <Text style={[styles.label, { marginTop: 12 }]}>Items</Text>
+          {items.map((it) => (
+            <View key={it.id} style={styles.line}>
+              <TouchableOpacity
+                style={[styles.input, { flex: 1, justifyContent: "center" }]}
+                onPress={() => {
+                  setActiveItemId(it.id);
+                  setModalVisible(true);
+                }}
+              >
+                <Text style={{ color: it.description ? "#000" : "#999" }}>
+                  {it.description || "Enter Item"}
+                </Text>
+              </TouchableOpacity>
+
+              <TextInput
+                placeholder="Qty"
+                keyboardType="numeric"
+                style={[styles.input, { width: 70, marginLeft: 8 }]}
+                value={it.qty ? String(it.qty) : ""}
+                onChangeText={(t) => updateLine(it.id, { qty: parseFloat(t) || 0 })}
+              />
+
+              <TextInput
+                placeholder="Price"
+                keyboardType="numeric"
+                style={[styles.input, { width: 100, marginLeft: 8 }]}
+                value={it.unitPrice ? String(it.unitPrice) : ""}
+                onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
+              />
+
+              <View style={{ justifyContent: "center", marginLeft: 8 }}>
+                <Text style={{ fontWeight: "700" }}>{formatCurrency(it.total)}</Text>
+                <TouchableOpacity onPress={() => removeLine(it.id)}>
+                  <Text style={{ color: "red", marginTop: 2 }}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+
+          <TouchableOpacity style={styles.addBtn} onPress={addLine}>
+            <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
+          <View style={styles.pickerWrap}>
+            <Picker selectedValue={status} onValueChange={(v) => setStatus(v as any)}>
+              <Picker.Item label="Received" value="Received" />
+              <Picker.Item label="Pending" value="Pending" />
+            </Picker>
+          </View>
+
+          <View style={styles.row}>
+            <Text style={styles.grandLabel}>Grand Total</Text>
+            <Text style={styles.grandValue}>{formatCurrency(grandTotal)}</Text>
+          </View>
+
+          <View style={{ height: 12 }} />
+
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Button
+              title="Cancel"
+              onPress={() => {
+                if (isDirty) {
+                  Alert.alert(
+                    "Discard changes?",
+                    "You have unsaved changes. If you go back, your data will be lost.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Discard", style: "destructive", onPress: () => nav.navigate("Home") },
+                    ]
+                  );
+                } else {
+                  nav.navigate("Home");
+                }
+              }}
+              color="#999"
+            />
+            <Button title="Print Invoice" onPress={onPrint} />
+            <Button title={editing ? "Update" : "Save"} onPress={onSave} />
+          </View>
+
+          <View style={{ height: 60 }} />
+        </ScrollView>
+
+        {/* Suggestion Modal */}
+        <Modal visible={modalVisible} transparent animationType="fade">
+          <TouchableWithoutFeedback
             onPress={() => {
-              // Add new item if it doesn't exist
-              if (activeItemId) {
-                updateLine(activeItemId, { description: searchText, unitPrice: 0 });
-                setActiveItemId(null);
-                setModalVisible(false);
-                setSearchText("");
-              }
+              setModalVisible(false);
+              setActiveItemId(null);
+              setSearchText("");
             }}
           >
-            <Text style={{ textAlign: "center", color: "#999" }}>
-              {searchText ? `Add "${searchText}"` : "No items found"}
-            </Text>
-          </TouchableOpacity>
-        }
-      />
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalBox}>
+                <Text style={styles.modalTitle}>Select Item</Text>
 
-      <Button
-        title="Close"
-        onPress={() => {
-          setModalVisible(false);
-          setSearchText("");
-        }}
-      />
-    </View>
-  </View>
-  </TouchableWithoutFeedback>
-</Modal>
+                <TextInput
+                  style={[styles.input, { marginBottom: 8 }]}
+                  placeholder="Search or type new item"
+                  value={searchText}
+                  onChangeText={setSearchText}
+                />
 
-    </View>
+                <FlatList
+                  data={suggestions.filter((s) =>
+                    s.description.toLowerCase().includes(searchText.toLowerCase())
+                  )}
+                  keyExtractor={(item) => item.description}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.modalItem}
+                      onPress={() => onSelectSuggestion(item.description, item.unitPrice)}
+                    >
+                      <Text style={{ fontWeight: "600" }}>{item.description}</Text>
+                      <Text style={{ color: "#555" }}>{formatCurrency(item.unitPrice)}</Text>
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <TouchableOpacity
+                      style={[styles.modalItem, { justifyContent: "center" }]}
+                      onPress={() => {
+                        if (activeItemId) {
+                          updateLine(activeItemId, { description: searchText, unitPrice: 0 });
+                          setActiveItemId(null);
+                          setModalVisible(false);
+                          setSearchText("");
+                        }
+                      }}
+                    >
+                      <Text style={{ textAlign: "center", color: "#999" }}>
+                        {searchText ? `Add "${searchText}"` : "No items found"}
+                      </Text>
+                    </TouchableOpacity>
+                  }
+                />
+
+                <Button
+                  title="Close"
+                  onPress={() => {
+                    setModalVisible(false);
+                    setSearchText("");
+                  }}
+                />
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      </View>
     </TouchableWithoutFeedback>
   );
 };
@@ -395,8 +457,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 },
   grandLabel: { fontSize: 16, fontWeight: "600" },
   grandValue: { fontSize: 16, fontWeight: "700" },
-
-  // ✅ Add these to fix the missing style errors
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -421,13 +481,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-    modalItem: {
+  modalItem: {
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-
 });
 
 export default InvoiceFormScreen;
