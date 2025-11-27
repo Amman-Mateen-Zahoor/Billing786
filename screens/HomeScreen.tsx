@@ -1,10 +1,12 @@
 import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -13,7 +15,7 @@ import {
 import { RootStackParamList } from "../App";
 import FAB from "../components/FAB";
 import InvoiceItem from "../components/InvoiceItem";
-import useInvoiceStore from "../store/invoiceStore";
+import useInvoiceStore, { loadInvoices } from "../store/invoiceStore";
 import { formatCurrency } from "../utils/format";
 
 type HomeNavProp = StackNavigationProp<RootStackParamList, "Home">;
@@ -27,6 +29,10 @@ const HomeScreen: React.FC = () => {
   const [selectedMonthYear, setSelectedMonthYear] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [searchText, setSearchText] = useState<string>("");
+
+  // Loading states
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Month options
   const monthOptions = useMemo(() => {
@@ -74,6 +80,36 @@ const HomeScreen: React.FC = () => {
 
   const total = filtered.reduce((s, i) => s + (i.grandTotal || 0), 0);
 
+  // Load invoices on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        await loadInvoices();
+      } catch (error) {
+        console.error("Failed to load invoices:", error);
+        Alert.alert("Error", "Failed to load invoices");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Pull to refresh function
+  const onRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      await loadInvoices();
+    } catch (error) {
+      console.error("Failed to refresh invoices:", error);
+      Alert.alert("Error", "Failed to refresh invoices");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const onItemPress = (invoice: any) => {
     Alert.alert(invoice.clientName, "Choose action", [
       { text: "Open", onPress: () => navigation.navigate("View", { invoiceId: invoice.id }) },
@@ -89,11 +125,29 @@ const HomeScreen: React.FC = () => {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          await deleteInvoice(invoice.id);
+          try {
+            setIsLoading(true);
+            await deleteInvoice(invoice.id);
+          } catch (error) {
+            console.error("Failed to delete invoice:", error);
+            Alert.alert("Error", "Failed to delete invoice");
+          } finally {
+            setIsLoading(false);
+          }
         },
       },
     ]);
   };
+
+  // Loading state
+  if (isLoading && invoices.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0b74de" />
+        <Text style={styles.loadingText}>Loading Invoices...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -113,6 +167,7 @@ const HomeScreen: React.FC = () => {
                 label={m === "All" ? "All Months" : humanizeMonth(m)}
                 value={m}
                 key={m}
+                color="#333"
               />
             ))}
           </Picker>
@@ -156,9 +211,35 @@ const HomeScreen: React.FC = () => {
         renderItem={({ item }) => (
           <InvoiceItem invoice={item} onPress={onItemPress} onLongPress={onItemLong} />
         )}
-        contentContainerStyle={{ paddingVertical: 8 }}
+        contentContainerStyle={[
+          styles.listContent,
+          filtered.length === 0 && styles.emptyListContent
+        ]}
         ListEmptyComponent={
-          <Text style={styles.empty}>No invoices match your search/filter.</Text>
+          isLoading ? (
+            <View style={styles.emptyLoading}>
+              <ActivityIndicator size="small" color="#0b74de" />
+              <Text style={styles.emptyText}>Loading invoices...</Text>
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>No invoices match your search/filter.</Text>
+          )
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            colors={["#0b74de"]}
+            tintColor="#0b74de"
+          />
+        }
+        ListHeaderComponent={
+          isLoading && invoices.length > 0 ? (
+            <View style={styles.refreshIndicator}>
+              <ActivityIndicator size="small" color="#0b74de" />
+              <Text style={styles.refreshText}>Updating...</Text>
+            </View>
+          ) : null
         }
       />
 
@@ -185,7 +266,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   picker: {
-    color: "#333", // Text color for the selected value
+    color: "#333",
   },
   searchInput: {
     backgroundColor: "#fff",
@@ -193,12 +274,57 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     borderRadius: 8,
     marginBottom: 8,
-    color: "#333", // Text color for search input
+    color: "#333",
   },
   totalWrap: { paddingHorizontal: 12, alignItems: "flex-end", marginBottom: 8 },
   totalLabel: { color: "#666", fontSize: 12 },
   totalValue: { fontWeight: "700", fontSize: 16, color: "#333" },
-  empty: { textAlign: "center", marginTop: 24, color: "#666" },
+  listContent: {
+    paddingVertical: 8,
+    flexGrow: 1,
+  },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+  emptyText: { 
+    textAlign: "center", 
+    marginTop: 24, 
+    color: "#666",
+    fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f2f4f7",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "500",
+  },
+  emptyLoading: {
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  refreshIndicator: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 8,
+    backgroundColor: "rgba(11, 116, 222, 0.05)",
+    marginHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  refreshText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: "#0b74de",
+    fontWeight: "500",
+  },
 });
 
 export default HomeScreen;

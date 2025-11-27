@@ -49,7 +49,7 @@ const InvoiceFormScreen: React.FC = () => {
   const editing = Boolean(invoiceId);
   const existing = invoices.find((i) => i.id === invoiceId);
 
-  const [clientName, setClientName] = useState(existing?.clientName ?? "786 Traders");
+  const [clientName, setClientName] = useState(existing?.clientName ?? "");
   const [date, setDate] = useState<Date>(
     existing ? new Date(existing.date) : new Date()
   );
@@ -261,7 +261,7 @@ const InvoiceFormScreen: React.FC = () => {
               style={styles.input}
               value={clientName}
               placeholder="786 Traders"
-              placeholderTextColor={"#999"}
+              placeholderTextColor={"#000"}
               onChangeText={setClientName}
             />
 
@@ -328,9 +328,9 @@ const InvoiceFormScreen: React.FC = () => {
               </View>
             ))}
 
-            <TouchableOpacity style={styles.addBtn} onPress={addLine}>
-              <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={styles.addBtnGradient} onPress={addLine}>
+  <Text style={styles.addBtnTextGradient}>+ Add New Item</Text>
+</TouchableOpacity>
 
             <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
             <View style={styles.pickerWrap}>
@@ -623,6 +623,25 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     maxHeight: 200, // Limit height to prevent keyboard issues
   },
+addBtnGradient: {
+  padding: 16,
+  alignItems: "center",
+  marginVertical: 8,
+  backgroundColor: "#fff",
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: "#e1e5e9",
+  shadowColor: "#0b74de",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+addBtnTextGradient: {
+  color: "#0b74de",
+  fontWeight: "700",
+  fontSize: 16,
+},
 });
 
 export default InvoiceFormScreen;
