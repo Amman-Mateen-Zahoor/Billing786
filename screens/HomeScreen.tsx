@@ -105,12 +105,15 @@ const HomeScreen: React.FC = () => {
             selectedValue={selectedMonthYear}
             onValueChange={(v) => setSelectedMonthYear(String(v))}
             mode="dropdown"
+            style={styles.picker}
+            dropdownIconColor="#333"
           >
             {monthOptions.map((m) => (
               <Picker.Item
                 label={m === "All" ? "All Months" : humanizeMonth(m)}
                 value={m}
                 key={m}
+                color="#333" // Add text color
               />
             ))}
           </Picker>
@@ -122,10 +125,12 @@ const HomeScreen: React.FC = () => {
             selectedValue={statusFilter}
             onValueChange={(v) => setStatusFilter(String(v))}
             mode="dropdown"
+            style={styles.picker}
+            dropdownIconColor="#333"
           >
-            <Picker.Item label="All Status" value="All" />
-            <Picker.Item label="Received" value="Received" />
-            <Picker.Item label="Pending" value="Pending" />
+            <Picker.Item label="All Status" value="All" color="#333" />
+            <Picker.Item label="Received" value="Received" color="#333" />
+            <Picker.Item label="Pending" value="Pending" color="#333" />
           </Picker>
         </View>
       </View>
@@ -136,6 +141,7 @@ const HomeScreen: React.FC = () => {
         placeholder="Search by client name or invoice ID"
         value={searchText}
         onChangeText={setSearchText}
+        placeholderTextColor="#999"
       />
 
       {/* Total */}
@@ -179,16 +185,20 @@ const styles = StyleSheet.create({
     marginRight: 8,
     overflow: "hidden",
   },
+  picker: {
+    color: "#333", // Text color for the selected value
+  },
   searchInput: {
     backgroundColor: "#fff",
     padding: 10,
     marginHorizontal: 12,
     borderRadius: 8,
     marginBottom: 8,
+    color: "#333", // Text color for search input
   },
   totalWrap: { paddingHorizontal: 12, alignItems: "flex-end", marginBottom: 8 },
   totalLabel: { color: "#666", fontSize: 12 },
-  totalValue: { fontWeight: "700", fontSize: 16 },
+  totalValue: { fontWeight: "700", fontSize: 16, color: "#333" },
   empty: { textAlign: "center", marginTop: 24, color: "#666" },
 });
 

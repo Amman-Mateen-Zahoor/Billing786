@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Props {
   onPress: () => void;
@@ -7,8 +8,9 @@ interface Props {
 }
 
 const FAB: React.FC<Props> = ({ onPress, label = "Create Invoice" }) => {
+  const {bottom} = useSafeAreaInsets();
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress}>
+    <TouchableOpacity style={[styles.container ,{bottom : 26 + bottom}]} onPress={onPress}>
       <View style={styles.inner}>
         <Text style={styles.plus}>+</Text>
         <Text style={styles.label}>{label}</Text>
@@ -21,7 +23,6 @@ const styles = StyleSheet.create({
   container: {
     position: "absolute",
     right: 16,
-    bottom: 26,
     elevation: 6,
     shadowColor: "#000",
     shadowOpacity: 0.2,
