@@ -26,7 +26,7 @@ import {
   View,
 } from "react-native";
 import "react-native-get-random-values";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
 
 import { RootStackParamList } from "../App";
@@ -237,19 +237,23 @@ const InvoiceFormScreen: React.FC = () => {
       }
     }
   }, [searchText]);
+ 
+ const {bottom} = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={[ 'left', 'right']}>
       <TouchableWithoutFeedback
         onPress={() => {
           setModalVisible(false);
           Keyboard.dismiss();
         }}
       >
-        <View style={{ flex: 1 }}>
+        <View 
+        style={{ flex: 1 ,padding:5 }}
+        >
           <ScrollView 
-            style={styles.container} 
-            contentContainerStyle={styles.scrollContent}
+            // style={styles.container} 
+            contentContainerStyle={[styles.scrollContent,{paddingBottom: 12 + bottom}]}
             showsVerticalScrollIndicator={false}
           >
             <Text style={styles.label}>Client Name</Text>
@@ -293,7 +297,7 @@ const InvoiceFormScreen: React.FC = () => {
                   }}
                 >
                   <Text style={{ color: it.description ? "#000" : "#999" }}>
-                    {it.description || "Select Item"}
+                    {it.description || "Enter Item"}
                   </Text>
                 </TouchableOpacity>
 
@@ -324,9 +328,10 @@ const InvoiceFormScreen: React.FC = () => {
               </View>
             ))}
 
-            <TouchableOpacity style={styles.addBtn} onPress={addLine}>
-              <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
-            </TouchableOpacity>
+           <TouchableOpacity style={styles.addBtnGradient} onPress={addLine}>
+  <Text style={styles.addBtnTextGradient}>+ Add New Item</Text>
+</TouchableOpacity>
+
 
             <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
             <View style={styles.pickerWrap}>
@@ -514,20 +519,39 @@ const invoiceToHTML = (inv: {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff",
+    // backgroundColor: "green",
   },
   container: { 
     flex: 1, 
   },
   scrollContent: { 
     padding: 12,
-    paddingBottom: 20, // Extra padding at bottom
   },
   label: { fontSize: 13, color: "#222", marginBottom: 6, fontWeight: "600" },
+  addBtnGradient: {
+  padding: 16,
+  alignItems: "center",
+  marginVertical: 8,
+  backgroundColor: "#fff",
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: "#e1e5e9",
+  shadowColor: "#0b74de",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+addBtnTextGradient: {
+  color: "#0b74de",
+  fontWeight: "700",
+  fontSize: 16,
+},
   input: {
     backgroundColor: "#f7f7f8",
     borderRadius: 8,
-    padding: 10,
+    paddingVertical: 10,
+    paddingBottom: 12,
     fontSize: 14,
     marginBottom: 8,
     color: "#333",
