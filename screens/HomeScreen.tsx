@@ -113,7 +113,6 @@ const HomeScreen: React.FC = () => {
                 label={m === "All" ? "All Months" : humanizeMonth(m)}
                 value={m}
                 key={m}
-                color="#333" // Add text color
               />
             ))}
           </Picker>

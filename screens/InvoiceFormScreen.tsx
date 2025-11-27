@@ -47,7 +47,7 @@ const InvoiceFormScreen: React.FC = () => {
   const editing = Boolean(invoiceId);
   const existing = invoices.find((i) => i.id === invoiceId);
 
-  const [clientName, setClientName] = useState(existing?.clientName ?? "");
+  const [clientName, setClientName] = useState(existing?.clientName ?? "786 Traders");
   const [date, setDate] = useState<Date>(
     existing ? new Date(existing.date) : new Date()
   );
@@ -214,6 +214,7 @@ const InvoiceFormScreen: React.FC = () => {
             style={styles.input}
             value={clientName}
             placeholder="786 Traders"
+            placeholderTextColor={"black"}
             onChangeText={setClientName}
           />
 
@@ -246,13 +247,14 @@ const InvoiceFormScreen: React.FC = () => {
                   setModalVisible(true);
                 }}
               >
-                <Text style={{ color: it.description ? "#000" : "#999" }}>
+                <Text style={{ color: it.description ? "#000" : "#000" }}>
                   {it.description || "Enter Item"}
                 </Text>
               </TouchableOpacity>
 
               <TextInput
                 placeholder="Qty"
+                placeholderTextColor={"black"}
                 keyboardType="numeric"
                 style={[styles.input, { width: 70, marginLeft: 8 }]}
                 value={it.qty ? String(it.qty) : ""}
@@ -262,6 +264,7 @@ const InvoiceFormScreen: React.FC = () => {
               <TextInput
                 placeholder="Price"
                 keyboardType="numeric"
+                placeholderTextColor={"black"}
                 style={[styles.input, { width: 100, marginLeft: 8 }]}
                 value={it.unitPrice ? String(it.unitPrice) : ""}
                 onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
