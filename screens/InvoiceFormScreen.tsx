@@ -1,4 +1,3 @@
-// InvoiceFormScreen.tsx
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import {
@@ -15,6 +14,7 @@ import {
   Button,
   FlatList,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -43,6 +43,7 @@ const InvoiceFormScreen: React.FC = () => {
   const addInvoice = useInvoiceStore((s) => s.addInvoice);
   const updateInvoice = useInvoiceStore((s) => s.updateInvoice);
   const getItemSuggestions = useInvoiceStore((s) => s.getItemSuggestions);
+  const addItemSuggestion = useInvoiceStore((s) => s.addItemSuggestion);
 
   const editing = Boolean(invoiceId);
   const existing = invoices.find((i) => i.id === invoiceId);
@@ -61,6 +62,7 @@ const InvoiceFormScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [newItemPrice, setNewItemPrice] = useState(""); // For new item price input
 
   const [isDirty, setIsDirty] = useState(false);
 
@@ -102,11 +104,33 @@ const InvoiceFormScreen: React.FC = () => {
     setItems((s) => s.filter((it) => it.id !== id));
   };
 
-  const onSelectSuggestion = (desc: string, price: number) => {
+  const onSelectSuggestion = async (desc: string, price: number) => {
     if (activeItemId) {
-      updateLine(activeItemId, { description: desc, unitPrice: price });
+      updateLine(activeItemId, { description: desc, unitPrice: price, qty: 1 });
+      // Save this item as a suggestion for future use
+      await addItemSuggestion({ description: desc, unitPrice: price });
       setActiveItemId(null);
       setModalVisible(false);
+      setSearchText("");
+      setNewItemPrice("");
+    }
+  };
+
+  const onSaveNewItem = async () => {
+    if (activeItemId && searchText.trim()) {
+      const price = parseFloat(newItemPrice) || 0;
+      const newItem = { 
+        description: searchText.trim(), 
+        unitPrice: price, 
+        qty: 1 
+      };
+      updateLine(activeItemId, newItem);
+      // Save as suggestion for future use
+      await addItemSuggestion({ description: newItem.description, unitPrice: newItem.unitPrice });
+      setActiveItemId(null);
+      setModalVisible(false);
+      setSearchText("");
+      setNewItemPrice("");
     }
   };
 
@@ -180,7 +204,7 @@ const InvoiceFormScreen: React.FC = () => {
     } else {
       setIsDirty(false);
     }
-  }, [clientName, date, id, items, status]);
+  }, [clientName, date, id, items, status, existing]);
 
   // Confirm back navigation
   useEffect(() => {
@@ -200,6 +224,19 @@ const InvoiceFormScreen: React.FC = () => {
     return unsubscribe;
   }, [nav, isDirty]);
 
+  // Reset new item price when search text changes
+  useEffect(() => {
+    if (searchText.trim() && !suggestions.some(s => 
+      s.description.toLowerCase().includes(searchText.toLowerCase())
+    )) {
+      // Keep the existing price if user is still typing the same item
+      // Only reset if it's a completely new search
+      if (!newItemPrice) {
+        setNewItemPrice("");
+      }
+    }
+  }, [searchText]);
+
   return (
     <TouchableWithoutFeedback
       onPress={() => {
@@ -214,7 +251,7 @@ const InvoiceFormScreen: React.FC = () => {
             style={styles.input}
             value={clientName}
             placeholder="786 Traders"
-            placeholderTextColor={"black"}
+            placeholderTextColor={"#999"}
             onChangeText={setClientName}
           />
 
@@ -245,16 +282,18 @@ const InvoiceFormScreen: React.FC = () => {
                 onPress={() => {
                   setActiveItemId(it.id);
                   setModalVisible(true);
+                  setSearchText("");
+                  setNewItemPrice("");
                 }}
               >
-                <Text style={{ color: it.description ? "#000" : "#000" }}>
-                  {it.description || "Enter Item"}
+                <Text style={{ color: it.description ? "#000" : "#999" }}>
+                  {it.description || "Select Item"}
                 </Text>
               </TouchableOpacity>
 
               <TextInput
                 placeholder="Qty"
-                placeholderTextColor={"black"}
+                placeholderTextColor={"#999"}
                 keyboardType="numeric"
                 style={[styles.input, { width: 70, marginLeft: 8 }]}
                 value={it.qty ? String(it.qty) : ""}
@@ -264,7 +303,7 @@ const InvoiceFormScreen: React.FC = () => {
               <TextInput
                 placeholder="Price"
                 keyboardType="numeric"
-                placeholderTextColor={"black"}
+                placeholderTextColor={"#999"}
                 style={[styles.input, { width: 100, marginLeft: 8 }]}
                 value={it.unitPrice ? String(it.unitPrice) : ""}
                 onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
@@ -285,9 +324,14 @@ const InvoiceFormScreen: React.FC = () => {
 
           <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
           <View style={styles.pickerWrap}>
-            <Picker selectedValue={status} onValueChange={(v) => setStatus(v as any)}>
-              <Picker.Item label="Received" value="Received" />
-              <Picker.Item label="Pending" value="Pending" />
+            <Picker 
+              selectedValue={status} 
+              onValueChange={(v) => setStatus(v as any)}
+              style={styles.picker}
+              dropdownIconColor="#333"
+            >
+              <Picker.Item label="Received" value="Received" color="#333" />
+              <Picker.Item label="Pending" value="Pending" color="#333" />
             </Picker>
           </View>
 
@@ -300,7 +344,7 @@ const InvoiceFormScreen: React.FC = () => {
 
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             <Button
-              title="Cancel"
+              title="CANCEL"
               onPress={() => {
                 if (isDirty) {
                   Alert.alert(
@@ -317,8 +361,8 @@ const InvoiceFormScreen: React.FC = () => {
               }}
               color="#999"
             />
-            <Button title="Print Invoice" onPress={onPrint} />
-            <Button title={editing ? "Update" : "Save"} onPress={onSave} />
+            <Button title="PRINT INVOICE" onPress={onPrint} />
+            <Button title={editing ? "UPDATE" : "SAVE"} onPress={onSave} />
           </View>
 
           <View style={{ height: 60 }} />
@@ -326,14 +370,15 @@ const InvoiceFormScreen: React.FC = () => {
 
         {/* Suggestion Modal */}
         <Modal visible={modalVisible} transparent animationType="fade">
-          <TouchableWithoutFeedback
-            onPress={() => {
-              setModalVisible(false);
-              setActiveItemId(null);
-              setSearchText("");
-            }}
+          <KeyboardAvoidingView 
+            style={styles.modalOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
           >
-            <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback
+              onPress={() => {
+                // Don't close on overlay tap to prevent accidental closes
+              }}
+            >
               <View style={styles.modalBox}>
                 <Text style={styles.modalTitle}>Select Item</Text>
 
@@ -342,7 +387,37 @@ const InvoiceFormScreen: React.FC = () => {
                   placeholder="Search or type new item"
                   value={searchText}
                   onChangeText={setSearchText}
+                  placeholderTextColor="#999"
+                  autoFocus
                 />
+
+                {/* New Item Price Input - Show only when searching for new items */}
+                {searchText.trim() && !suggestions.some(s => 
+                  s.description.toLowerCase() === searchText.toLowerCase()
+                ) && (
+                  <View style={styles.newItemSection}>
+                    <Text style={styles.newItemLabel}>Set Price for "{searchText}"</Text>
+                    <TextInput
+                      style={[styles.input, { marginBottom: 8 }]}
+                      placeholder="Enter price"
+                      placeholderTextColor="#999"
+                      keyboardType="numeric"
+                      value={newItemPrice}
+                      onChangeText={setNewItemPrice}
+                      returnKeyType="done"
+                      onSubmitEditing={onSaveNewItem}
+                    />
+                    <TouchableOpacity
+                      style={[styles.addButton, !newItemPrice.trim() && styles.addButtonDisabled]}
+                      onPress={onSaveNewItem}
+                      disabled={!newItemPrice.trim()}
+                    >
+                      <Text style={styles.addButtonText}>
+                        ADD ITEM {newItemPrice.trim() ? `- ${formatCurrency(parseFloat(newItemPrice) || 0)}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 <FlatList
                   data={suggestions.filter((s) =>
@@ -354,39 +429,30 @@ const InvoiceFormScreen: React.FC = () => {
                       style={styles.modalItem}
                       onPress={() => onSelectSuggestion(item.description, item.unitPrice)}
                     >
-                      <Text style={{ fontWeight: "600" }}>{item.description}</Text>
+                      <Text style={{ fontWeight: "600", color: "#333" }}>{item.description}</Text>
                       <Text style={{ color: "#555" }}>{formatCurrency(item.unitPrice)}</Text>
                     </TouchableOpacity>
                   )}
                   ListEmptyComponent={
-                    <TouchableOpacity
-                      style={[styles.modalItem, { justifyContent: "center" }]}
-                      onPress={() => {
-                        if (activeItemId) {
-                          updateLine(activeItemId, { description: searchText, unitPrice: 0 });
-                          setActiveItemId(null);
-                          setModalVisible(false);
-                          setSearchText("");
-                        }
-                      }}
-                    >
-                      <Text style={{ textAlign: "center", color: "#999" }}>
-                        {searchText ? `Add "${searchText}"` : "No items found"}
-                      </Text>
-                    </TouchableOpacity>
+                    !searchText.trim()
+                      ? <Text style={styles.noItemsText}>No items found. Start typing to add a new item.</Text>
+                      : null
                   }
+                  style={styles.flatList}
+                  keyboardShouldPersistTaps="handled"
                 />
 
                 <Button
-                  title="Close"
+                  title="CLOSE"
                   onPress={() => {
                     setModalVisible(false);
                     setSearchText("");
+                    setNewItemPrice("");
                   }}
                 />
               </View>
-            </View>
-          </TouchableWithoutFeedback>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         </Modal>
       </View>
     </TouchableWithoutFeedback>
@@ -440,24 +506,97 @@ const invoiceToHTML = (inv: {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  label: { fontSize: 13, color: "#222", marginBottom: 6 },
+  label: { fontSize: 13, color: "#222", marginBottom: 6, fontWeight: "600" },
   input: {
     backgroundColor: "#f7f7f8",
     borderRadius: 8,
     padding: 10,
     fontSize: 14,
     marginBottom: 8,
+    color: "#333",
   },
   line: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   addBtn: { padding: 10, alignItems: "center", marginVertical: 8, backgroundColor: "#fff" },
-  pickerWrap: { backgroundColor: "#f7f7f8", borderRadius: 8, overflow: "hidden", marginBottom: 8 },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 },
-  grandLabel: { fontSize: 16, fontWeight: "600" },
-  grandValue: { fontSize: 16, fontWeight: "700" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modalBox: { backgroundColor: "#fff", padding: 16, borderRadius: 10, width: "85%", maxHeight: "70%" },
-  modalTitle: { fontSize: 18, fontWeight: "600", marginBottom: 12, textAlign: "center" },
-  modalItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  pickerWrap: { 
+    backgroundColor: "#f7f7f8", 
+    borderRadius: 8, 
+    overflow: "hidden", 
+    marginBottom: 8 
+  },
+  picker: {
+    color: "#333",
+  },
+  row: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    marginTop: 12 
+  },
+  grandLabel: { fontSize: 16, fontWeight: "600", color: "#333" },
+  grandValue: { fontSize: 16, fontWeight: "700", color: "#333" },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: "rgba(0,0,0,0.5)", 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+  modalBox: { 
+    backgroundColor: "#fff", 
+    padding: 16, 
+    borderRadius: 10, 
+    width: "85%", 
+    maxHeight: "80%", // Increased to accommodate keyboard
+  },
+  modalTitle: { 
+    fontSize: 18, 
+    fontWeight: "600", 
+    marginBottom: 12, 
+    textAlign: "center",
+    color: "#333"
+  },
+  modalItem: { 
+    paddingVertical: 10, 
+    paddingHorizontal: 12, 
+    borderBottomWidth: 1, 
+    borderBottomColor: "#eee" 
+  },
+  newItemSection: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+  },
+  newItemLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+    color: "#333",
+  },
+  noItemsText: {
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 8,
+    padding: 16,
+  },
+  addButton: {
+    backgroundColor: "#0b74de",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  addButtonDisabled: {
+    backgroundColor: "#ccc",
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  flatList: {
+    flexGrow: 0,
+    maxHeight: 200, // Limit height to prevent keyboard issues
+  },
 });
 
 export default InvoiceFormScreen;
