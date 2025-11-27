@@ -328,10 +328,9 @@ const InvoiceFormScreen: React.FC = () => {
               </View>
             ))}
 
-           <TouchableOpacity style={styles.addBtnGradient} onPress={addLine}>
-  <Text style={styles.addBtnTextGradient}>+ Add New Item</Text>
-</TouchableOpacity>
-
+            <TouchableOpacity style={styles.addBtn} onPress={addLine}>
+              <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
+            </TouchableOpacity>
 
             <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
             <View style={styles.pickerWrap}>
@@ -528,25 +527,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   label: { fontSize: 13, color: "#222", marginBottom: 6, fontWeight: "600" },
-  addBtnGradient: {
-  padding: 16,
-  alignItems: "center",
-  marginVertical: 8,
-  backgroundColor: "#fff",
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: "#e1e5e9",
-  shadowColor: "#0b74de",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 3,
-},
-addBtnTextGradient: {
-  color: "#0b74de",
-  fontWeight: "700",
-  fontSize: 16,
-},
   input: {
     backgroundColor: "#f7f7f8",
     borderRadius: 8,
