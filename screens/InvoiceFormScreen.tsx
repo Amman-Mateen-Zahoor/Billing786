@@ -26,6 +26,7 @@ import {
   View,
 } from "react-native";
 import "react-native-get-random-values";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
 
 import { RootStackParamList } from "../App";
@@ -238,224 +239,230 @@ const InvoiceFormScreen: React.FC = () => {
   }, [searchText]);
 
   return (
-    <TouchableWithoutFeedback
-      onPress={() => {
-        setModalVisible(false);
-        Keyboard.dismiss();
-      }}
-    >
-      <View style={{ flex: 1 }}>
-        <ScrollView style={styles.container} contentContainerStyle={{ padding: 12 }}>
-          <Text style={styles.label}>Client Name</Text>
-          <TextInput
-            style={styles.input}
-            value={clientName}
-            placeholder="786 Traders"
-            placeholderTextColor={"#999"}
-            onChangeText={setClientName}
-          />
-
-          <Text style={styles.label}>Date</Text>
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
-            <Text>{date.toDateString()}</Text>
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="default"
-              onChange={(_, d) => {
-                setShowDatePicker(false);
-                if (d) setDate(d);
-              }}
-            />
-          )}
-
-          <Text style={styles.label}>Invoice ID</Text>
-          <TextInput style={styles.input} value={id} onChangeText={setId} />
-
-          <Text style={[styles.label, { marginTop: 12 }]}>Items</Text>
-          {items.map((it) => (
-            <View key={it.id} style={styles.line}>
-              <TouchableOpacity
-                style={[styles.input, { flex: 1, justifyContent: "center" }]}
-                onPress={() => {
-                  setActiveItemId(it.id);
-                  setModalVisible(true);
-                  setSearchText("");
-                  setNewItemPrice("");
-                }}
-              >
-                <Text style={{ color: it.description ? "#000" : "#999" }}>
-                  {it.description || "Select Item"}
-                </Text>
-              </TouchableOpacity>
-
-              <TextInput
-                placeholder="Qty"
-                placeholderTextColor={"#999"}
-                keyboardType="numeric"
-                style={[styles.input, { width: 70, marginLeft: 8 }]}
-                value={it.qty ? String(it.qty) : ""}
-                onChangeText={(t) => updateLine(it.id, { qty: parseFloat(t) || 0 })}
-              />
-
-              <TextInput
-                placeholder="Price"
-                keyboardType="numeric"
-                placeholderTextColor={"#999"}
-                style={[styles.input, { width: 100, marginLeft: 8 }]}
-                value={it.unitPrice ? String(it.unitPrice) : ""}
-                onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
-              />
-
-              <View style={{ justifyContent: "center", marginLeft: 8 }}>
-                <Text style={{ fontWeight: "700" }}>{formatCurrency(it.total)}</Text>
-                <TouchableOpacity onPress={() => removeLine(it.id)}>
-                  <Text style={{ color: "red", marginTop: 2 }}>Remove</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-
-          <TouchableOpacity style={styles.addBtn} onPress={addLine}>
-            <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
-          </TouchableOpacity>
-
-          <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
-          <View style={styles.pickerWrap}>
-            <Picker 
-              selectedValue={status} 
-              onValueChange={(v) => setStatus(v as any)}
-              style={styles.picker}
-              dropdownIconColor="#333"
-            >
-              <Picker.Item label="Received" value="Received" color="#333" />
-              <Picker.Item label="Pending" value="Pending" color="#333" />
-            </Picker>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.grandLabel}>Grand Total</Text>
-            <Text style={styles.grandValue}>{formatCurrency(grandTotal)}</Text>
-          </View>
-
-          <View style={{ height: 12 }} />
-
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Button
-              title="CANCEL"
-              onPress={() => {
-                if (isDirty) {
-                  Alert.alert(
-                    "Discard changes?",
-                    "You have unsaved changes. If you go back, your data will be lost.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Discard", style: "destructive", onPress: () => nav.navigate("Home") },
-                    ]
-                  );
-                } else {
-                  nav.navigate("Home");
-                }
-              }}
-              color="#999"
-            />
-            <Button title="PRINT INVOICE" onPress={onPrint} />
-            <Button title={editing ? "UPDATE" : "SAVE"} onPress={onSave} />
-          </View>
-
-          <View style={{ height: 60 }} />
-        </ScrollView>
-
-        {/* Suggestion Modal */}
-        <Modal visible={modalVisible} transparent animationType="fade">
-          <KeyboardAvoidingView 
-            style={styles.modalOverlay}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <TouchableWithoutFeedback
+        onPress={() => {
+          setModalVisible(false);
+          Keyboard.dismiss();
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <ScrollView 
+            style={styles.container} 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <TouchableWithoutFeedback
-              onPress={() => {
-                // Don't close on overlay tap to prevent accidental closes
-              }}
-            >
-              <View style={styles.modalBox}>
-                <Text style={styles.modalTitle}>Select Item</Text>
+            <Text style={styles.label}>Client Name</Text>
+            <TextInput
+              style={styles.input}
+              value={clientName}
+              placeholder="786 Traders"
+              placeholderTextColor={"#999"}
+              onChangeText={setClientName}
+            />
 
-                <TextInput
-                  style={[styles.input, { marginBottom: 8 }]}
-                  placeholder="Search or type new item"
-                  value={searchText}
-                  onChangeText={setSearchText}
-                  placeholderTextColor="#999"
-                  autoFocus
-                />
+            <Text style={styles.label}>Date</Text>
+            <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
+              <Text>{date.toDateString()}</Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display="default"
+                onChange={(_, d) => {
+                  setShowDatePicker(false);
+                  if (d) setDate(d);
+                }}
+              />
+            )}
 
-                {/* New Item Price Input - Show only when searching for new items */}
-                {searchText.trim() && !suggestions.some(s => 
-                  s.description.toLowerCase() === searchText.toLowerCase()
-                ) && (
-                  <View style={styles.newItemSection}>
-                    <Text style={styles.newItemLabel}>Set Price for "{searchText}"</Text>
-                    <TextInput
-                      style={[styles.input, { marginBottom: 8 }]}
-                      placeholder="Enter price"
-                      placeholderTextColor="#999"
-                      keyboardType="numeric"
-                      value={newItemPrice}
-                      onChangeText={setNewItemPrice}
-                      returnKeyType="done"
-                      onSubmitEditing={onSaveNewItem}
-                    />
-                    <TouchableOpacity
-                      style={[styles.addButton, !newItemPrice.trim() && styles.addButtonDisabled]}
-                      onPress={onSaveNewItem}
-                      disabled={!newItemPrice.trim()}
-                    >
-                      <Text style={styles.addButtonText}>
-                        ADD ITEM {newItemPrice.trim() ? `- ${formatCurrency(parseFloat(newItemPrice) || 0)}` : ''}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+            <Text style={styles.label}>Invoice ID</Text>
+            <TextInput style={styles.input} value={id} onChangeText={setId} />
 
-                <FlatList
-                  data={suggestions.filter((s) =>
-                    s.description.toLowerCase().includes(searchText.toLowerCase())
-                  )}
-                  keyExtractor={(item) => item.description}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={styles.modalItem}
-                      onPress={() => onSelectSuggestion(item.description, item.unitPrice)}
-                    >
-                      <Text style={{ fontWeight: "600", color: "#333" }}>{item.description}</Text>
-                      <Text style={{ color: "#555" }}>{formatCurrency(item.unitPrice)}</Text>
-                    </TouchableOpacity>
-                  )}
-                  ListEmptyComponent={
-                    !searchText.trim()
-                      ? <Text style={styles.noItemsText}>No items found. Start typing to add a new item.</Text>
-                      : null
-                  }
-                  style={styles.flatList}
-                  keyboardShouldPersistTaps="handled"
-                />
-
-                <Button
-                  title="CLOSE"
+            <Text style={[styles.label, { marginTop: 12 }]}>Items</Text>
+            {items.map((it) => (
+              <View key={it.id} style={styles.line}>
+                <TouchableOpacity
+                  style={[styles.input, { flex: 1, justifyContent: "center" }]}
                   onPress={() => {
-                    setModalVisible(false);
+                    setActiveItemId(it.id);
+                    setModalVisible(true);
                     setSearchText("");
                     setNewItemPrice("");
                   }}
+                >
+                  <Text style={{ color: it.description ? "#000" : "#999" }}>
+                    {it.description || "Select Item"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TextInput
+                  placeholder="Qty"
+                  placeholderTextColor={"#999"}
+                  keyboardType="numeric"
+                  style={[styles.input, { width: 70, marginLeft: 8 }]}
+                  value={it.qty ? String(it.qty) : ""}
+                  onChangeText={(t) => updateLine(it.id, { qty: parseFloat(t) || 0 })}
                 />
+
+                <TextInput
+                  placeholder="Price"
+                  keyboardType="numeric"
+                  placeholderTextColor={"#999"}
+                  style={[styles.input, { width: 100, marginLeft: 8 }]}
+                  value={it.unitPrice ? String(it.unitPrice) : ""}
+                  onChangeText={(t) => updateLine(it.id, { unitPrice: parseFloat(t) || 0 })}
+                />
+
+                <View style={{ justifyContent: "center", marginLeft: 8 }}>
+                  <Text style={{ fontWeight: "700" }}>{formatCurrency(it.total)}</Text>
+                  <TouchableOpacity onPress={() => removeLine(it.id)}>
+                    <Text style={{ color: "red", marginTop: 2 }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
-        </Modal>
-      </View>
-    </TouchableWithoutFeedback>
+            ))}
+
+            <TouchableOpacity style={styles.addBtn} onPress={addLine}>
+              <Text style={{ color: "#0b74de" }}>+ Add Item</Text>
+            </TouchableOpacity>
+
+            <Text style={[styles.label, { marginTop: 12 }]}>Status</Text>
+            <View style={styles.pickerWrap}>
+              <Picker 
+                selectedValue={status} 
+                onValueChange={(v) => setStatus(v as any)}
+                style={styles.picker}
+                dropdownIconColor="#333"
+              >
+                <Picker.Item label="Received" value="Received" color="#333" />
+                <Picker.Item label="Pending" value="Pending" color="#333" />
+              </Picker>
+            </View>
+
+            <View style={styles.row}>
+              <Text style={styles.grandLabel}>Grand Total</Text>
+              <Text style={styles.grandValue}>{formatCurrency(grandTotal)}</Text>
+            </View>
+
+            <View style={{ height: 12 }} />
+
+            <View style={styles.buttonContainer}>
+              <Button
+                title="CANCEL"
+                onPress={() => {
+                  if (isDirty) {
+                    Alert.alert(
+                      "Discard changes?",
+                      "You have unsaved changes. If you go back, your data will be lost.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Discard", style: "destructive", onPress: () => nav.navigate("Home") },
+                      ]
+                    );
+                  } else {
+                    nav.navigate("Home");
+                  }
+                }}
+                color="#999"
+              />
+              <Button title="PRINT INVOICE" onPress={onPrint} />
+              <Button title={editing ? "UPDATE" : "SAVE"} onPress={onSave} />
+            </View>
+
+            <View style={{ height: 20 }} />
+          </ScrollView>
+
+          {/* Suggestion Modal */}
+          <Modal visible={modalVisible} transparent animationType="fade">
+            <KeyboardAvoidingView 
+              style={styles.modalOverlay}
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+            >
+              <TouchableWithoutFeedback
+                onPress={() => {
+                  // Don't close on overlay tap to prevent accidental closes
+                }}
+              >
+                <View style={styles.modalBox}>
+                  <Text style={styles.modalTitle}>Select Item</Text>
+
+                  <TextInput
+                    style={[styles.input, { marginBottom: 8 }]}
+                    placeholder="Search or type new item"
+                    value={searchText}
+                    onChangeText={setSearchText}
+                    placeholderTextColor="#999"
+                    autoFocus
+                  />
+
+                  {/* New Item Price Input - Show only when searching for new items */}
+                  {searchText.trim() && !suggestions.some(s => 
+                    s.description.toLowerCase() === searchText.toLowerCase()
+                  ) && (
+                    <View style={styles.newItemSection}>
+                      <Text style={styles.newItemLabel}>Set Price for "{searchText}"</Text>
+                      <TextInput
+                        style={[styles.input, { marginBottom: 8 }]}
+                        placeholder="Enter price"
+                        placeholderTextColor="#999"
+                        keyboardType="numeric"
+                        value={newItemPrice}
+                        onChangeText={setNewItemPrice}
+                        returnKeyType="done"
+                        onSubmitEditing={onSaveNewItem}
+                      />
+                      <TouchableOpacity
+                        style={[styles.addButton, !newItemPrice.trim() && styles.addButtonDisabled]}
+                        onPress={onSaveNewItem}
+                        disabled={!newItemPrice.trim()}
+                      >
+                        <Text style={styles.addButtonText}>
+                          ADD ITEM {newItemPrice.trim() ? `- ${formatCurrency(parseFloat(newItemPrice) || 0)}` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  <FlatList
+                    data={suggestions.filter((s) =>
+                      s.description.toLowerCase().includes(searchText.toLowerCase())
+                    )}
+                    keyExtractor={(item) => item.description}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.modalItem}
+                        onPress={() => onSelectSuggestion(item.description, item.unitPrice)}
+                      >
+                        <Text style={{ fontWeight: "600", color: "#333" }}>{item.description}</Text>
+                        <Text style={{ color: "#555" }}>{formatCurrency(item.unitPrice)}</Text>
+                      </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={
+                      !searchText.trim()
+                        ? <Text style={styles.noItemsText}>No items found. Start typing to add a new item.</Text>
+                        : null
+                    }
+                    style={styles.flatList}
+                    keyboardShouldPersistTaps="handled"
+                  />
+
+                  <Button
+                    title="CLOSE"
+                    onPress={() => {
+                      setModalVisible(false);
+                      setSearchText("");
+                      setNewItemPrice("");
+                    }}
+                  />
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+          </Modal>
+        </View>
+      </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 };
 
@@ -505,7 +512,17 @@ const invoiceToHTML = (inv: {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  container: { 
+    flex: 1, 
+  },
+  scrollContent: { 
+    padding: 12,
+    paddingBottom: 20, // Extra padding at bottom
+  },
   label: { fontSize: 13, color: "#222", marginBottom: 6, fontWeight: "600" },
   input: {
     backgroundColor: "#f7f7f8",
@@ -534,6 +551,11 @@ const styles = StyleSheet.create({
   },
   grandLabel: { fontSize: 16, fontWeight: "600", color: "#333" },
   grandValue: { fontSize: 16, fontWeight: "700", color: "#333" },
+  buttonContainer: {
+    flexDirection: "row", 
+    justifyContent: "space-between",
+    marginBottom: 10, // Extra margin for bottom buttons
+  },
   modalOverlay: { 
     flex: 1, 
     backgroundColor: "rgba(0,0,0,0.5)", 
